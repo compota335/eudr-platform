@@ -62,8 +62,8 @@ def test_cn_invalid_code_raises() -> None:
 # Country risk tiers (Article 29)                                              #
 # --------------------------------------------------------------------------- #
 def test_unlisted_country_defaults_to_standard() -> None:
-    # Germany is not on the (conservative, empty) high/low lists -> standard,
-    # the Article 29 legal default.
+    # Germany is low risk in the act but LOW is left empty pending the Annex, so
+    # it resolves to standard — the Article 29(3) default and the safe direction.
     assert risk_tier_for_country("DE") is CountryRiskTier.standard
 
 
@@ -72,10 +72,17 @@ def test_country_code_normalizes_case() -> None:
     assert risk_tier_for_country(" Br ") is CountryRiskTier.standard
 
 
+def test_published_high_risk_countries() -> None:
+    # The four HIGH-risk countries from Implementing Regulation (EU) 2025/1093.
+    for code in ("BY", "KP", "MM", "RU"):
+        assert risk_tier_for_country(code) is CountryRiskTier.high
+    # Normalization still applies to the real set.
+    assert risk_tier_for_country(" ru ") is CountryRiskTier.high
+
+
 def test_high_and_low_list_members_map_correctly(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The published Article 29 lists are intentionally empty pending
-    # verification, so exercise the mechanism with patched sets: a member of the
-    # high set maps to high, a member of the low set maps to low.
+    # Exercise the lookup mechanism with patched sets (independent of the real
+    # data): a member of the high set maps to high, of the low set to low.
     monkeypatch.setattr(country_risk, "HIGH_RISK", frozenset({"AA"}))
     monkeypatch.setattr(country_risk, "LOW_RISK", frozenset({"BB"}))
     assert risk_tier_for_country("aa") is CountryRiskTier.high

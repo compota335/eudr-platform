@@ -19,21 +19,21 @@ The tier drives how deep the due diligence goes:
 
 Fidelity policy (house rule: FAIL LOUD, NEVER FAKE SUCCESS):
 
-The project's domain notes flag the concrete country benchmarking as UNVERIFIED
-(deep dive Section 9, item 5; business plan "benchmarking de riesgo país ... sin
-verificar"). The Commission's benchmarking list is short and is amended by
-implementing act; a stale or invented classification here would be exactly the
-fabricated regulatory data the house rules forbid. We therefore:
+The Commission's benchmarking list is short and is amended by implementing act;
+a stale or invented classification here would be exactly the fabricated
+regulatory data the house rules forbid. So each tier is populated ONLY from the
+published act, member by member:
 
-* keep the explicit ``HIGH_RISK`` and ``LOW_RISK`` sets MINIMAL and conservative,
-  populated only from what is confidently established, and
-* rely on the ``standard`` legal default for everything else.
+* ``HIGH_RISK`` carries the four countries named high risk in the first
+  benchmarking act, Implementing Regulation (EU) 2025/1093 (22 May 2025).
+* ``LOW_RISK`` is intentionally left EMPTY until that act's ~140-country Annex
+  is transcribed in full from the official text (not from a summary).
 
-Both sets are intentionally allowed to be empty. An empty set means "no country
-is confidently classified into this tier in this table version" and makes every
-valid, unlisted country resolve to the ``standard`` default — the safe, legally
-correct behaviour. Populate these sets ONLY from the published Article 29
-implementing act, and bump :data:`COUNTRY_RISK_VERSION` when you do.
+An unlisted country resolves to ``standard``, the Article 29(3) legal default.
+That default is also the SAFE direction: treating a truly-low-risk country as
+standard only OVER-applies due diligence, it never under-applies it. Populate a
+tier ONLY from the published implementing act and bump
+:data:`COUNTRY_RISK_VERSION` when you do.
 """
 
 from __future__ import annotations
@@ -42,20 +42,28 @@ from app.models.enums import CountryRiskTier
 
 # Bump whenever the classification sets below change so any stored due-diligence
 # decision can be traced back to the exact benchmarking snapshot that produced
-# it. The suffix marks that the concrete lists are conservative pending
-# verification of the Article 29 implementing act.
-COUNTRY_RISK_VERSION = "art29.2023.1115.conservative-unverified"
+# it. This snapshot carries the four HIGH-risk countries from the first
+# benchmarking act, Implementing Regulation (EU) 2025/1093; the LOW set is still
+# pending transcription of that act's ~140-country Annex (see below).
+COUNTRY_RISK_VERSION = "art29.ir2025-1093.high-verified.low-pending"
 
 
 # --------------------------------------------------------------------------- #
 # Explicit classifications — ISO 3166-1 alpha-2, UPPERCASE                      #
 # --------------------------------------------------------------------------- #
-# Deliberately empty pending verification of the Commission's Article 29
-# benchmarking implementing act (see module docstring / deep dive Section 9).
-# Do NOT populate with guesses: an unlisted country correctly falls through to
-# the ``standard`` legal default below. When the published list is confirmed,
-# add its ISO alpha-2 members here and bump COUNTRY_RISK_VERSION.
-HIGH_RISK: frozenset[str] = frozenset()
+# HIGH: the only four countries the Commission classified high risk in the first
+# benchmarking act, Implementing Regulation (EU) 2025/1093 of 22 May 2025 —
+# Belarus (BY), North Korea / DPRK (KP), Myanmar (MM), Russia (RU). These are
+# whole-country classifications, driven chiefly by UN/EU sanctions on the covered
+# goods. Any country outside this set falls through to the STANDARD default below.
+HIGH_RISK: frozenset[str] = frozenset({"BY", "KP", "MM", "RU"})
+
+# LOW: the same act classified ~140 countries low risk (all EU Member States, the
+# UK, US, Canada, China, Japan, Australia, South Africa, ...), which unlocks
+# simplified due diligence (Article 13). Left EMPTY until the full ISO-code Annex
+# is transcribed from the official act: an unlisted country resolves to STANDARD,
+# which only ever OVER-applies due diligence (the safe direction). Do NOT fill
+# this from a summary — only from the published Annex — and bump the version.
 LOW_RISK: frozenset[str] = frozenset()
 
 
