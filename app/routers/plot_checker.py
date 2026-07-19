@@ -23,6 +23,7 @@ import secrets
 from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy.orm import Session
 
@@ -118,7 +119,12 @@ async def check_plot(
             commodity=commodity_enum,
             declared_volume_t=declared_volume_t,
         )
-        evidence = provider(validated.geometry, external_ref=validated.external_ref)
+        # The provider is a SYNC blocking call (Whisp submit -> poll -> fetch can
+        # take minutes). This endpoint is ``async def`` (it awaits the upload),
+        # so the call must move off the event loop or it stalls every request.
+        evidence = await run_in_threadpool(
+            provider, validated.geometry, external_ref=validated.external_ref
+        )
         result = assess(evidence, commodity=commodity_enum)
     except _InputError as exc:
         return _error_response(is_htmx, request, exc.message, exc.status_code)
