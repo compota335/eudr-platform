@@ -87,6 +87,12 @@ secondary source, the **GFW Data API**. No raster tiles are stored locally;
 zonal statistics are fetched per plot. Provider URLs and keys are configured
 in `.env` (see `.env.example`).
 
+The Whisp client uses the API's synchronous path (one request per plot) and
+needs a free API key. Without `WHISP_API_KEY` the plot-checker and per-plot
+assess fail loud with HTTP 503 — no fabricated verdict is returned. See
+[docs/whisp-integration.md](docs/whisp-integration.md) for the verified API
+contract and how to obtain the key.
+
 ## Licence
 
 Proprietary. See [LICENSE](LICENSE).
