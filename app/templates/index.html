@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="space-y-4">
+  <h1 class="text-3xl font-bold text-slate-900">
+    Get your shipments through EU customs.
+  </h1>
+  <p class="max-w-2xl text-slate-600">
+    The EU Deforestation Regulation requires a Due Diligence Statement, with
+    plot-level geolocation and deforestation-free evidence, before your goods
+    are released. We collect, verify and assemble it.
+  </p>
+</section>
+
+<section class="mt-10 grid gap-6 sm:grid-cols-2">
+  <a href="/plot-checker"
+     class="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:border-emerald-400">
+    <h2 class="text-lg font-semibold text-slate-900">Plot checker</h2>
+    <p class="mt-2 text-sm text-slate-600">
+      Upload coordinates or GeoJSON and get an instant deforestation risk
+      report: green, amber or red, from a convergence of satellite datasets.
+    </p>
+  </a>
+  <a href="/scope-checker"
+     class="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:border-emerald-400">
+    <h2 class="text-lg font-semibold text-slate-900">Scope checker</h2>
+    <p class="mt-2 text-sm text-slate-600">
+      Check whether a product falls under EUDR by CN / HS code and get the
+      documentation its Due Diligence Statement will require.
+    </p>
+  </a>
+</section>
+{% endblock %}
