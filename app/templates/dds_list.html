@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="space-y-3">
+  <h1 class="text-3xl font-bold text-slate-900">Due Diligence Statements</h1>
+  <p class="max-w-2xl text-slate-600">
+    Internal Due Diligence Statements assembled from verified shipments. These
+    are internal records: no TRACES submission is performed, so each carries an
+    internal reference, not a TRACES reference number.
+  </p>
+</section>
+
+<section class="mt-8">
+  <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    {% if statements %}
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 font-medium">Reference</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+          <th class="px-4 py-3 font-medium">Operator</th>
+          <th class="px-4 py-3 font-medium">Shipment</th>
+          <th class="px-4 py-3 font-medium">Assembled</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for dds in statements %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3">
+            <a
+              href="/dds/{{ dds.id }}"
+              class="font-medium text-emerald-700 hover:underline"
+            >
+              {{ dds.reference_number or "—" }}
+            </a>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+              {{ dds.status.value }}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-600">
+            {{ dds.client.name if dds.client else "—" }}
+          </td>
+          <td class="px-4 py-3 text-slate-600">
+            {{ dds.shipment.reference if dds.shipment and dds.shipment.reference else "—" }}
+          </td>
+          <td class="px-4 py-3 text-slate-600">
+            {{ dds.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">
+      No Due Diligence Statements yet. A DDS is assembled from a verified,
+      all-green shipment.
+    </p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

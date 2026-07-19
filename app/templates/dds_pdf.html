@@ -1,0 +1,172 @@
+{#
+  Standalone, print-friendly HTML view of an assembled DDS. Deliberately does
+  NOT extend base.html: no site chrome, no nav, a clean sheet that mirrors the
+  PDF (app/services/dds_pdf.py) so a browser "Print" produces the same document.
+#}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ payload.reference_number or "DDS" }}</title>
+    <style>
+      :root {
+        --ink: #111827;
+        --muted: #6b7280;
+        --rule: #e5e7eb;
+        --header-bg: #f3f4f6;
+        --green: #059669;
+        --amber: #d97706;
+        --red: #dc2626;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        font-size: 12px;
+        line-height: 1.5;
+        background: #fff;
+      }
+      .sheet { max-width: 780px; margin: 0 auto; }
+      h1 { font-size: 22px; margin: 0 0 4px; }
+      h2 {
+        font-size: 13px;
+        margin: 24px 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--ink);
+      }
+      .ref { font-family: "Courier New", monospace; color: var(--muted); margin: 0; }
+      .notice {
+        margin: 12px 0;
+        padding: 8px 12px;
+        border: 1px solid var(--rule);
+        background: var(--header-bg);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+      .kv td { padding: 4px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+      .kv td:first-child {
+        width: 38%;
+        background: var(--header-bg);
+        font-weight: 600;
+      }
+      .grid th, .grid td {
+        padding: 5px 8px;
+        border: 1px solid var(--rule);
+        text-align: left;
+        vertical-align: top;
+      }
+      .grid th { background: var(--header-bg); font-weight: 600; }
+      .num { text-align: right; }
+      .risk-green { color: var(--green); font-weight: 700; }
+      .risk-amber { color: var(--amber); font-weight: 700; }
+      .risk-red { color: var(--red); font-weight: 700; }
+      .assertion { margin-top: 6px; }
+      footer {
+        margin-top: 28px;
+        padding-top: 10px;
+        border-top: 1px solid var(--rule);
+        font-size: 10px;
+        color: var(--muted);
+      }
+      footer p { margin: 2px 0; }
+      @media print {
+        body { padding: 0; }
+        @page { margin: 18mm; }
+      }
+    </style>
+  </head>
+  <body>
+    {% set operator = payload.operator or {} %}
+    {% set commodity = payload.commodity or {} %}
+    {% set scope = payload.scope or {} %}
+    {% set deforestation = payload.deforestation_free or {} %}
+    <main class="sheet">
+      <h1>EUDR Due Diligence Statement</h1>
+
+      <table class="kv">
+        <tr><td>Reference number</td><td>{{ payload.reference_number or "-" }}</td></tr>
+        <tr><td>Status</td><td>{{ dds.status.value }}</td></tr>
+        <tr><td>Assembled</td><td>{{ dds.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}</td></tr>
+        <tr><td>Schema version</td><td>{{ payload.schema_version or "-" }}</td></tr>
+      </table>
+
+      <p class="notice">
+        Internal reference — not a TRACES reference number (TRACES submission
+        not performed).
+      </p>
+
+      <h2>Operator</h2>
+      <table class="kv">
+        <tr><td>Name</td><td>{{ operator.name or "-" }}</td></tr>
+        <tr><td>Country</td><td>{{ operator.country or "-" }}</td></tr>
+        <tr><td>EORI</td><td>{{ operator.eori or "-" }}</td></tr>
+        <tr><td>Contact email</td><td>{{ operator.contact_email or "-" }}</td></tr>
+      </table>
+
+      <h2>Commodity</h2>
+      <table class="kv">
+        <tr><td>Commodity</td><td>{{ commodity.commodity or "-" }}</td></tr>
+        <tr><td>CN code</td><td>{{ commodity.cn_code or "-" }}</td></tr>
+        <tr><td>Quantity (kg)</td><td>{{ commodity.quantity_kg if commodity.quantity_kg is not none else "-" }}</td></tr>
+        <tr><td>Country of production</td><td>{{ commodity.country_of_production or "-" }}</td></tr>
+      </table>
+
+      <h2>Scope</h2>
+      <table class="kv">
+        <tr><td>In scope</td><td>{% if scope.in_scope is none %}-{% elif scope.in_scope %}Yes{% else %}No{% endif %}</td></tr>
+        <tr><td>Matched Annex I heading</td><td>{{ scope.matched_cn or "-" }}</td></tr>
+        <tr><td>Country risk</td><td>{{ scope.country_risk or "-" }}</td></tr>
+        <tr><td>CN table version</td><td>{{ scope.cn_table_version or "-" }}</td></tr>
+        <tr><td>Country table version</td><td>{{ scope.country_table_version or "-" }}</td></tr>
+      </table>
+
+      <h2>Geolocation</h2>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Supplier</th>
+            <th>Country</th>
+            <th class="num">Area (ha)</th>
+            <th>Geometry</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for plot in payload.geolocation %}
+          {% set risk = plot.risk_level %}
+          <tr>
+            <td>{{ plot.external_ref or "-" }}</td>
+            <td>{{ plot.supplier_name or "-" }}</td>
+            <td>{{ plot.country or "-" }}</td>
+            <td class="num">{{ plot.area_ha if plot.area_ha is not none else "-" }}</td>
+            <td>{{ plot.geometry_type or "-" }}</td>
+            <td class="{% if risk == 'green' %}risk-green{% elif risk == 'amber' %}risk-amber{% elif risk == 'red' %}risk-red{% endif %}">
+              {{ (risk or "-")|upper }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6">No plots recorded.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2>Deforestation-free</h2>
+      <table class="kv">
+        <tr><td>Cutoff date</td><td>{{ deforestation.cutoff_date or "-" }}</td></tr>
+        <tr><td>Ruleset version</td><td>{{ deforestation.ruleset_version or "-" }}</td></tr>
+      </table>
+      <p class="assertion">{{ deforestation.assertion or "-" }}</p>
+
+      <footer>
+        <p>Internal reference — not a TRACES reference number (TRACES submission not performed).</p>
+        <p>EUDR compliance tooling. Not legal advice. Regulation (EU) 2023/1115.</p>
+      </footer>
+    </main>
+  </body>
+</html>

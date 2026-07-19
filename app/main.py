@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import settings
 from app.db import init_db
-from app.routers import clients, plot_checker, scope
+from app.routers import clients, dds, plot_checker, scope
 from app.templating import BASE_DIR, templates
 
 
@@ -34,6 +34,7 @@ if _static_dir.exists():
 app.include_router(plot_checker.router)
 app.include_router(scope.router)
 app.include_router(clients.router)
+app.include_router(dds.router)
 
 
 @app.get("/health")

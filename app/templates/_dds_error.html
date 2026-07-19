@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{# Fail-loud exception report for the DDS layer: a refused assembly or a missing
+   resource is shown as an explicit red report, never papered over. #}
+{% block content %}
+<section class="space-y-3">
+  <h1 class="text-3xl font-bold text-slate-900">Due Diligence Statements</h1>
+</section>
+
+<div class="mt-8 rounded-lg border border-red-300 bg-red-50 p-6 shadow-sm">
+  <h2 class="text-lg font-semibold text-red-800">{{ heading }}</h2>
+  <p class="mt-2 text-sm text-red-700">{{ message }}</p>
+
+  {% if problems %}
+  <ul class="mt-4 list-disc space-y-1 pl-5 text-sm text-red-700">
+    {% for problem in problems %}<li>{{ problem }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <a href="/dds" class="mt-6 inline-block text-sm font-medium text-emerald-700 hover:underline">
+    Back to statements
+  </a>
+</div>
+{% endblock %}
