@@ -46,7 +46,11 @@
         <tbody class="divide-y divide-slate-100">
           {% for supplier in client.suppliers %}
           <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-medium text-slate-800">{{ supplier.name }}</td>
+            <td class="px-4 py-3 font-medium text-slate-800">
+              <a href="/suppliers/{{ supplier.id }}" class="hover:text-emerald-700">
+                {{ supplier.name }}
+              </a>
+            </td>
             <td class="px-4 py-3 text-slate-600">{{ supplier.country or "—" }}</td>
             <td class="px-4 py-3 text-slate-600">
               {{ supplier.commodity.value if supplier.commodity else "—" }}
