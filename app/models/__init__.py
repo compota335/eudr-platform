@@ -26,6 +26,7 @@ from app.models.enums import (
 from app.models.evidence import Evidence
 from app.models.outreach import OutreachMessage
 from app.models.plot import Plot
+from app.models.plot_check import PlotCheck
 from app.models.shipment import Shipment, shipment_plot
 from app.models.supplier import Supplier
 
@@ -37,6 +38,7 @@ __all__ = [
     "Client",
     "Supplier",
     "Plot",
+    "PlotCheck",
     "Document",
     "Shipment",
     "shipment_plot",
