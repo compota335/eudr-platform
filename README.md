@@ -25,9 +25,12 @@ The build is organised in four phases:
 3. **Scope checker** — determine whether a product falls under EUDR by CN /
    HS code and free-text description, returning scope, country risk tier and
    the documentation required.
-4. **DDS assembly pipeline** — collect supplier data and geolocation, attach
-   deforestation and legality evidence, assemble a schema-valid DDS payload,
-   generate the reference, and track submission status.
+4. **DDS assembly pipeline** — onboard clients, suppliers, plots (GeoJSON /
+   CSV / WKT / KML / shapefile) and shipments through the web UI, assess each
+   plot's deforestation risk, link plots to shipments, assemble a DDS payload
+   with an internal reference, and export it as PDF. Submission to TRACES is
+   not integrated yet (the official DDS schema is unverified), so the DDS is
+   an internal, TRACES-mappable record.
 
 ## Design principles
 
@@ -61,6 +64,13 @@ uvicorn app.main:app --reload
 ```
 
 Then open <http://localhost:8000>.
+
+In development the schema is created automatically on startup. Production
+applies Alembic migrations instead (see `migrations/README`):
+
+```bash
+alembic upgrade head
+```
 
 ### Checks
 
