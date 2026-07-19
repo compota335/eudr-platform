@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="space-y-3">
+  <h1 class="text-3xl font-bold text-slate-900">EUDR scope check</h1>
+  <p class="max-w-2xl text-slate-600">
+    Check whether a product falls under Regulation (EU) 2023/1115. The Combined
+    Nomenclature (CN) code declared to customs decides scope; a product
+    description can only suggest a candidate commodity.
+  </p>
+</section>
+
+<section class="mt-8 grid gap-8 lg:grid-cols-2">
+  <form
+    class="space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+    hx-post="/api/check-scope"
+    hx-target="#scope-result"
+    hx-swap="innerHTML"
+    hx-indicator="#scope-checking"
+  >
+    <div>
+      <label class="block text-sm font-medium text-slate-700" for="cn_code">
+        CN / HS code
+      </label>
+      <input
+        type="text"
+        id="cn_code"
+        name="cn_code"
+        placeholder="0901"
+        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+      />
+      <p class="mt-1 text-xs text-slate-400">
+        Authoritative for scope. Dots and spaces are ignored.
+      </p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-700" for="product_description">
+        Product description
+      </label>
+      <textarea
+        id="product_description"
+        name="product_description"
+        rows="3"
+        placeholder="Roasted arabica coffee beans"
+        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+      ></textarea>
+      <p class="mt-1 text-xs text-slate-400">
+        Optional. Suggests a commodity only; never decides scope on its own.
+      </p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-700" for="origin_country">
+        Origin country
+      </label>
+      <input
+        type="text"
+        id="origin_country"
+        name="origin_country"
+        maxlength="2"
+        placeholder="BR"
+        class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+      />
+      <p class="mt-1 text-xs text-slate-400">
+        Optional. Adds the Article 29 country-risk tier.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button
+        type="submit"
+        class="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+      >
+        Check scope
+      </button>
+      <span id="scope-checking" class="htmx-indicator text-sm text-slate-500">
+        Checking...
+      </span>
+    </div>
+
+    <p class="text-xs text-slate-400">
+      EUDR compliance tooling. Not legal advice. Regulation (EU) 2023/1115.
+    </p>
+  </form>
+
+  <div id="scope-result" class="min-h-[8rem]"></div>
+</section>
+{% endblock %}

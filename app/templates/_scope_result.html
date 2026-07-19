@@ -1,0 +1,59 @@
+{# Scope result fragment: in-scope / out-of-scope panel plus documentation. #}
+{% if in_scope %}
+  {% set panel = "border-emerald-300 bg-emerald-50" %}
+  {% set badge = "bg-emerald-600" %}
+  {% set label = "IN SCOPE" %}
+{% else %}
+  {% set panel = "border-slate-300 bg-slate-50" %}
+  {% set badge = "bg-slate-600" %}
+  {% set label = "NOT CONFIRMED IN SCOPE" %}
+{% endif %}
+
+<div class="space-y-5 rounded-lg border {{ panel }} p-6 shadow-sm">
+  <div class="flex items-center gap-3">
+    <span class="inline-flex items-center rounded-full {{ badge }} px-3 py-1 text-sm font-bold uppercase tracking-wide text-white">
+      {{ label }}
+    </span>
+    <span class="text-sm text-slate-600">EUDR scope determination</span>
+  </div>
+
+  <dl class="grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+    <div class="flex justify-between gap-4">
+      <dt class="text-slate-500">Commodity</dt>
+      <dd>{{ commodity if commodity else "-" }}</dd>
+    </div>
+    <div class="flex justify-between gap-4">
+      <dt class="text-slate-500">Declared CN</dt>
+      <dd>{{ cn_code if cn_code else "-" }}</dd>
+    </div>
+    <div class="flex justify-between gap-4">
+      <dt class="text-slate-500">Matched Annex I heading</dt>
+      <dd>{{ matched_cn if matched_cn else "-" }}</dd>
+    </div>
+    <div class="flex justify-between gap-4">
+      <dt class="text-slate-500">Origin country</dt>
+      <dd>
+        {{ country_code if country_code else "-" }}
+        {% if country_risk %}<span class="text-slate-500">({{ country_risk }} risk)</span>{% endif %}
+      </dd>
+    </div>
+  </dl>
+
+  <div>
+    <h3 class="text-sm font-semibold text-slate-700">Rationale</h3>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700">
+      {% for line in rationale %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+  </div>
+
+  {% if required_documentation %}
+  <div>
+    <h3 class="text-sm font-semibold text-slate-700">Required documentation (DDS)</h3>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700">
+      {% for doc in required_documentation %}<li>{{ doc }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <p class="text-xs text-slate-400">Not legal advice. Regulation (EU) 2023/1115.</p>
+</div>
