@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="text-sm text-slate-500">
+  <a href="/clients" class="hover:text-emerald-700">Clients</a>
+  <span class="px-1">/</span>
+  <span class="text-slate-700">{{ client.name }}</span>
+</nav>
+
+<section class="mt-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">{{ client.name }}</h1>
+      <p class="mt-1 text-sm text-slate-500">{{ client.side.value }}</p>
+    </div>
+    <dl class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+      <dt class="text-slate-400">Country</dt>
+      <dd class="text-slate-700">{{ client.country or "—" }}</dd>
+      <dt class="text-slate-400">Email</dt>
+      <dd class="text-slate-700">{{ client.contact_email or "—" }}</dd>
+      <dt class="text-slate-400">EORI</dt>
+      <dd class="text-slate-700">{{ client.eori or "—" }}</dd>
+    </dl>
+  </div>
+  {% if client.notes %}
+  <p class="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-600">{{ client.notes }}</p>
+  {% endif %}
+</section>
+
+<!-- Suppliers ------------------------------------------------------------- -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Suppliers</h2>
+  <div class="mt-3 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      {% if client.suppliers %}
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3 font-medium">Name</th>
+            <th class="px-4 py-3 font-medium">Country</th>
+            <th class="px-4 py-3 font-medium">Commodity</th>
+            <th class="px-4 py-3 font-medium">Email</th>
+            <th class="px-4 py-3 font-medium text-right">Volume (t)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for supplier in client.suppliers %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-medium text-slate-800">{{ supplier.name }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ supplier.country or "—" }}</td>
+            <td class="px-4 py-3 text-slate-600">
+              {{ supplier.commodity.value if supplier.commodity else "—" }}
+            </td>
+            <td class="px-4 py-3 text-slate-600">{{ supplier.contact_email or "—" }}</td>
+            <td class="px-4 py-3 text-right text-slate-600">
+              {{ supplier.approx_volume_t if supplier.approx_volume_t is not none else "—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="px-4 py-6 text-sm text-slate-500">No suppliers yet.</p>
+      {% endif %}
+    </div>
+
+    <form
+      method="post"
+      action="/clients/{{ client.id }}/suppliers"
+      class="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <h3 class="text-sm font-semibold text-slate-900">Add supplier</h3>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_name">Name</label>
+        <input
+          type="text"
+          id="supplier_name"
+          name="name"
+          required
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_country">Country</label>
+        <input
+          type="text"
+          id="supplier_country"
+          name="country"
+          maxlength="2"
+          placeholder="BR"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_commodity">
+          Commodity
+        </label>
+        <select
+          id="supplier_commodity"
+          name="commodity"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        >
+          <option value="">Optional</option>
+          {% for commodity in commodities %}
+          <option value="{{ commodity.value }}">{{ commodity.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_email">Email</label>
+        <input
+          type="email"
+          id="supplier_email"
+          name="contact_email"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_phone">Phone</label>
+        <input
+          type="text"
+          id="supplier_phone"
+          name="contact_phone"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_language">
+          Language
+        </label>
+        <input
+          type="text"
+          id="supplier_language"
+          name="language"
+          maxlength="8"
+          placeholder="es"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="supplier_volume">
+          Approx. volume (t)
+        </label>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          id="supplier_volume"
+          name="approx_volume_t"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <button
+        type="submit"
+        class="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+      >
+        Add supplier
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- Shipments ------------------------------------------------------------- -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Shipments</h2>
+  <div class="mt-3 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      {% if client.shipments %}
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3 font-medium">Reference</th>
+            <th class="px-4 py-3 font-medium">Commodity</th>
+            <th class="px-4 py-3 font-medium">CN code</th>
+            <th class="px-4 py-3 font-medium text-right">Quantity (kg)</th>
+            <th class="px-4 py-3 font-medium">Country</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for shipment in client.shipments %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-medium text-slate-800">{{ shipment.reference or "—" }}</td>
+            <td class="px-4 py-3 text-slate-600">
+              {{ shipment.commodity.value if shipment.commodity else "—" }}
+            </td>
+            <td class="px-4 py-3 text-slate-600">{{ shipment.cn_code or "—" }}</td>
+            <td class="px-4 py-3 text-right text-slate-600">
+              {{ shipment.quantity_kg if shipment.quantity_kg is not none else "—" }}
+            </td>
+            <td class="px-4 py-3 text-slate-600">{{ shipment.country_of_production or "—" }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ shipment.status.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="px-4 py-6 text-sm text-slate-500">No shipments yet.</p>
+      {% endif %}
+    </div>
+
+    <form
+      method="post"
+      action="/clients/{{ client.id }}/shipments"
+      class="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <h3 class="text-sm font-semibold text-slate-900">Create shipment</h3>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="shipment_reference">
+          Reference
+        </label>
+        <input
+          type="text"
+          id="shipment_reference"
+          name="reference"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="shipment_commodity">
+          Commodity
+        </label>
+        <select
+          id="shipment_commodity"
+          name="commodity"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        >
+          <option value="">Optional</option>
+          {% for commodity in commodities %}
+          <option value="{{ commodity.value }}">{{ commodity.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="shipment_cn_code">CN code</label>
+        <input
+          type="text"
+          id="shipment_cn_code"
+          name="cn_code"
+          placeholder="0901"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="shipment_quantity">
+          Quantity (kg)
+        </label>
+        <input
+          type="number"
+          step="any"
+          min="0"
+          id="shipment_quantity"
+          name="quantity_kg"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="shipment_country">
+          Country of production
+        </label>
+        <input
+          type="text"
+          id="shipment_country"
+          name="country_of_production"
+          maxlength="2"
+          placeholder="BR"
+          class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+        />
+      </div>
+      <button
+        type="submit"
+        class="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+      >
+        Create shipment
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- Statements / DDS ------------------------------------------------------ -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Due Diligence Statements</h2>
+  <div class="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    {% if client.statements %}
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 font-medium">Reference number</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for statement in client.statements %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3 font-medium text-slate-800">
+            {{ statement.reference_number or "—" }}
+          </td>
+          <td class="px-4 py-3 text-slate-600">{{ statement.status.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">
+      No statements yet. A DDS is assembled once shipments are ready.
+    </p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
