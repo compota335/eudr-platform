@@ -4,19 +4,16 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from app import __version__
 from app.config import settings
 from app.db import init_db
-
-BASE_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.routers import plot_checker
+from app.templating import BASE_DIR, templates
 
 
 @asynccontextmanager
@@ -33,6 +30,8 @@ app = FastAPI(title="EUDR Platform", version=__version__, lifespan=lifespan)
 _static_dir = BASE_DIR / "static"
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+app.include_router(plot_checker.router)
 
 
 @app.get("/health")

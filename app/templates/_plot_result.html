@@ -1,0 +1,116 @@
+{# Result fragment for a completed plot check. Colour keyed off ``level``. #}
+{% if level == "red" %}
+  {% set panel = "border-red-300 bg-red-50" %}
+  {% set badge = "bg-red-600" %}
+  {% set heading = "text-red-800" %}
+{% elif level == "amber" %}
+  {% set panel = "border-amber-300 bg-amber-50" %}
+  {% set badge = "bg-amber-500" %}
+  {% set heading = "text-amber-800" %}
+{% else %}
+  {% set panel = "border-emerald-300 bg-emerald-50" %}
+  {% set badge = "bg-emerald-600" %}
+  {% set heading = "text-emerald-800" %}
+{% endif %}
+
+<div class="space-y-5 rounded-lg border {{ panel }} p-6 shadow-sm">
+  <div class="flex items-center gap-3">
+    <span class="inline-flex items-center rounded-full {{ badge }} px-3 py-1 text-sm font-bold uppercase tracking-wide text-white">
+      {{ verdict }}
+    </span>
+    <span class="text-sm {{ heading }}">Deforestation risk verdict</span>
+  </div>
+
+  {% if notes %}
+  <div class="rounded-md border border-slate-300 bg-white/70 px-3 py-2 text-xs text-slate-600">
+    {% for note in notes %}<p>{{ note }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div>
+    <h3 class="text-sm font-semibold text-slate-700">Rationale</h3>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700">
+      {% for line in rationale %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <h3 class="text-sm font-semibold text-slate-700">Converging datasets</h3>
+      {% if converging_families %}
+      <p class="mt-1 text-sm text-slate-700">
+        {{ converging_families | join(", ") }}
+        <span class="text-slate-500">
+          ({{ signals_in_plot }} in plot, {{ signals_in_buffer }} in buffer)
+        </span>
+      </p>
+      {% else %}
+      <p class="mt-1 text-sm text-slate-500">
+        No post-2020 loss datasets converge inside the plot
+        ({{ signals_in_buffer }} in buffer).
+      </p>
+      {% endif %}
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-slate-700">Geometry</h3>
+      <dl class="mt-1 space-y-0.5 text-sm text-slate-700">
+        <div class="flex justify-between gap-4">
+          <dt class="text-slate-500">Type</dt><dd>{{ geometry_type }}</dd>
+        </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-slate-500">Area (ha)</dt>
+          <dd>{{ "%.4f"|format(area_ha) }}</dd>
+        </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-slate-500">Centroid</dt>
+          <dd>{{ "%.6f"|format(centroid_lon) }}, {{ "%.6f"|format(centroid_lat) }}</dd>
+        </div>
+        <div class="flex justify-between gap-4">
+          <dt class="text-slate-500">Baseline forest</dt>
+          <dd>{{ "yes" if forest_2020_present else "no" }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  {% if warnings %}
+  <div>
+    <h3 class="text-sm font-semibold text-amber-700">Validation warnings</h3>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-amber-700">
+      {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="rounded-md border border-slate-200 bg-white p-4">
+    <h3 class="text-sm font-semibold text-slate-800">Download the PDF report</h3>
+    <p class="mt-1 text-xs text-slate-500">
+      Enter your email to unlock the full one-page risk report.
+    </p>
+    <form
+      class="mt-3 flex flex-col gap-2 sm:flex-row"
+      hx-post="{{ email_url }}"
+      hx-target="this"
+      hx-swap="outerHTML"
+    >
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="you@company.com"
+        class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+      />
+      <button
+        type="submit"
+        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+      >
+        Unlock PDF
+      </button>
+    </form>
+  </div>
+
+  <p class="text-xs text-slate-400">
+    Ruleset {{ ruleset_version }}{% if provider %} - provider {{ provider }}{% endif %}.
+    Satellite-derived results are provided as-is. Not legal advice.
+  </p>
+</div>

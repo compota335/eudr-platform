@@ -48,6 +48,11 @@ target-version = "py311"
 # pycodestyle, pyflakes, isort, bugbear, comprehensions, pyupgrade
 select = ["E", "F", "I", "B", "C4", "UP"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are meant to be called in argument
+# defaults; that is the framework's documented pattern, not the B008 antipattern.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.File"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_unused_ignores = true
