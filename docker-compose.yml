@@ -1,0 +1,36 @@
+# Local full-stack run: PostgreSQL + the app.
+#
+# APP_ENV is "development" here so the app creates its schema on startup, which
+# makes the stack runnable before Alembic migrations exist. Production must set
+# APP_ENV=production and manage the schema through Alembic (see handoff/pending).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: eudr
+      POSTGRES_PASSWORD: eudr
+      POSTGRES_DB: eudr
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eudr"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://eudr:eudr@db:5432/eudr
+      APP_SECRET_KEY: change-me-in-production
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
