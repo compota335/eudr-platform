@@ -12,7 +12,15 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import settings
 from app.db import init_db
-from app.routers import clients, dashboard, dds, plot_checker, scope, suppliers
+from app.routers import (
+    clients,
+    dashboard,
+    dds,
+    plot_checker,
+    scope,
+    shipments,
+    suppliers,
+)
 from app.templating import BASE_DIR, templates
 
 
@@ -35,6 +43,7 @@ app.include_router(plot_checker.router)
 app.include_router(scope.router)
 app.include_router(clients.router)
 app.include_router(suppliers.router)
+app.include_router(shipments.router)
 app.include_router(dds.router)
 app.include_router(dashboard.router)
 

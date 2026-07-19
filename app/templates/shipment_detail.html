@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="text-sm text-slate-500">
+  <a href="/clients" class="hover:text-emerald-700">Clients</a>
+  <span class="px-1">/</span>
+  <a href="/clients/{{ shipment.client.id }}" class="hover:text-emerald-700">
+    {{ shipment.client.name }}
+  </a>
+  <span class="px-1">/</span>
+  <span class="text-slate-700">{{ shipment.reference or "Shipment " ~ shipment.id }}</span>
+</nav>
+
+<section class="mt-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">
+        {{ shipment.reference or "Shipment " ~ shipment.id }}
+      </h1>
+      <p class="mt-1 text-sm text-slate-500">{{ shipment.status.value }}</p>
+    </div>
+    <dl class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+      <dt class="text-slate-400">Commodity</dt>
+      <dd class="text-slate-700">
+        {{ shipment.commodity.value if shipment.commodity else "—" }}
+      </dd>
+      <dt class="text-slate-400">CN code</dt>
+      <dd class="text-slate-700">{{ shipment.cn_code or "—" }}</dd>
+      <dt class="text-slate-400">Quantity (kg)</dt>
+      <dd class="text-slate-700">
+        {{ shipment.quantity_kg if shipment.quantity_kg is not none else "—" }}
+      </dd>
+      <dt class="text-slate-400">Country of production</dt>
+      <dd class="text-slate-700">{{ shipment.country_of_production or "—" }}</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- Attached plots --------------------------------------------------------- -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Attached plots</h2>
+  <div class="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    {% if shipment.plots %}
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 font-medium">Id</th>
+          <th class="px-4 py-3 font-medium">Supplier</th>
+          <th class="px-4 py-3 font-medium">External ref</th>
+          <th class="px-4 py-3 font-medium">Type</th>
+          <th class="px-4 py-3 font-medium text-right">Area (ha)</th>
+          <th class="px-4 py-3 font-medium">Risk</th>
+          <th class="px-4 py-3 font-medium"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for plot in shipment.plots %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3 font-medium text-slate-800">{{ plot.id }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ plot.supplier.name }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ plot.external_ref or "—" }}</td>
+          <td class="px-4 py-3 text-slate-600">{{ plot.geometry_type }}</td>
+          <td class="px-4 py-3 text-right text-slate-600">
+            {{ plot.area_ha if plot.area_ha is not none else "—" }}
+          </td>
+          <td class="px-4 py-3">
+            {% if plot.risk_level %}
+            <span
+              class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold {% if plot.risk_level.value == 'green' %}bg-emerald-100 text-emerald-800{% elif plot.risk_level.value == 'amber' %}bg-amber-100 text-amber-800{% else %}bg-red-100 text-red-800{% endif %}"
+            >
+              {{ plot.risk_level.value }}
+            </span>
+            {% else %}
+            <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              not assessed
+            </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <form method="post" action="/shipments/{{ shipment.id }}/plots/{{ plot.id }}/detach">
+              <button
+                type="submit"
+                class="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-red-300 hover:text-red-700"
+              >
+                Detach
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">No plots attached yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Attach plots ------------------------------------------------------------ -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Attach plots</h2>
+  <div class="mt-3 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    {% if available_plots %}
+    <form method="post" action="/shipments/{{ shipment.id }}/plots" class="space-y-4">
+      <div class="space-y-2">
+        {% for plot in available_plots %}
+        <label class="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+          <input
+            type="checkbox"
+            name="plot_ids" value="{{ plot.id }}"
+            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-400"
+          />
+          <span class="font-medium text-slate-800">{{ plot.supplier.name }}</span>
+          <span class="text-slate-600">Plot {{ plot.id }}</span>
+          <span class="text-slate-500">{{ plot.external_ref or "—" }}</span>
+          {% if plot.risk_level %}
+          <span
+            class="ml-auto inline-flex rounded-full px-2 py-0.5 text-xs font-semibold {% if plot.risk_level.value == 'green' %}bg-emerald-100 text-emerald-800{% elif plot.risk_level.value == 'amber' %}bg-amber-100 text-amber-800{% else %}bg-red-100 text-red-800{% endif %}"
+          >
+            {{ plot.risk_level.value }}
+          </span>
+          {% else %}
+          <span class="ml-auto inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+            not assessed
+          </span>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+      <button
+        type="submit"
+        class="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+      >
+        Attach selected plots
+      </button>
+    </form>
+    {% else %}
+    <p class="text-sm text-slate-500">
+      No plots available — add plots under a supplier first.
+    </p>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Due diligence ----------------------------------------------------------- -->
+<section class="mt-8">
+  <h2 class="text-lg font-semibold text-slate-900">Due diligence</h2>
+  <div class="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    {% if shipment.statements %}
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 font-medium">Reference number</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for statement in shipment.statements %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3 font-medium">
+            <a href="/dds/{{ statement.id }}" class="text-emerald-700 hover:underline">
+              {{ statement.reference_number or "DDS " ~ statement.id }}
+            </a>
+          </td>
+          <td class="px-4 py-3 text-slate-600">{{ statement.status.value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">No statements assembled for this shipment yet.</p>
+    {% endif %}
+  </div>
+  <form method="post" action="/dds" class="mt-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <input type="hidden" name="shipment_id" value="{{ shipment.id }}" />
+    <button
+      type="submit"
+      class="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+    >
+      Assemble DDS
+    </button>
+    <p class="mt-3 text-xs text-slate-500">
+      Assembly fails loud if the shipment data is incomplete, any plot is not yet
+      risk-assessed, or any plot is RED — nothing is filed over red evidence.
+    </p>
+  </form>
+</section>
+{% endblock %}

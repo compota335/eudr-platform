@@ -184,7 +184,11 @@
         <tbody class="divide-y divide-slate-100">
           {% for shipment in client.shipments %}
           <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-medium text-slate-800">{{ shipment.reference or "—" }}</td>
+            <td class="px-4 py-3 font-medium text-slate-800">
+              <a href="/shipments/{{ shipment.id }}" class="hover:text-emerald-700">
+                {{ shipment.reference or "Shipment " ~ shipment.id }}
+              </a>
+            </td>
             <td class="px-4 py-3 text-slate-600">
               {{ shipment.commodity.value if shipment.commodity else "—" }}
             </td>
