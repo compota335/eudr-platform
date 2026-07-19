@@ -1,0 +1,11 @@
+Alembic migrations for the EUDR platform.
+
+The connection URL comes from the application settings (DATABASE_URL / .env),
+not from alembic.ini; see env.py. Common commands, from the project root:
+
+    ./venv/bin/alembic upgrade head
+    ./venv/bin/alembic revision --autogenerate -m "describe the change"
+    ./venv/bin/alembic check          # fails if models and migrations diverge
+
+Development still uses create_all on startup for convenience; production owns
+its schema exclusively through these migrations.
