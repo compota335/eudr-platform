@@ -1,0 +1,41 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Databases / local data ---
+*.db
+*.sqlite
+*.sqlite3
+/data/
+/evidence_store/
+/instance/
+
+# --- Editor / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# --- Working methodology (kept local, not published) ---
+CLAUDE.md
+.claude/
+docs/handoff/
