@@ -21,6 +21,7 @@ dependencies = [
     "pyproj>=3.7",
     "pyshp>=2.3",
     "psycopg[binary]>=3.2",
+    "reportlab>=4.2",
 ]
 
 [project.optional-dependencies]
