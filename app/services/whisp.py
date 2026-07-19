@@ -1,40 +1,42 @@
-"""Whisp async-job API client: turns a plot geometry into ``PlotEvidence``.
+"""Whisp API client: turns a plot geometry into ``PlotEvidence``.
 
-Whisp (https://whisp.openforis.org/api, v2.1.0) is the deforestation-data
-provider behind Stage 4. It is an ASYNCHRONOUS JOB API: you submit a geometry,
-receive a job token, poll the job until it reaches a terminal state, then fetch
-the enriched GeoJSON result. This client walks that three-step handshake and
-hands the first result feature's ``properties`` to
-``evidence_from_whisp_properties`` so the risk engine never sees Whisp-specific
-column names.
+Whisp (https://whisp.openforis.org/api, API v2.1.0, backed by the
+``openforis-whisp`` library over Google Earth Engine) is the deforestation-data
+provider behind Stage 4. This client uses its SYNCHRONOUS path: a single
+``POST /submit/geojson`` with ``analysisOptions.async = false`` returns the
+enriched GeoJSON directly in one response — no job token, no polling, no
+separate result fetch. The sync path is documented to handle up to 250
+geometries within a 60s budget (``GET /api/config``), which is ample for the
+one-plot-at-a-time use case here.
 
-The client fails loud (see the house rules). A missing API key, any transport
-error, a non-2xx status, a JSON decode error, an unexpected payload shape, a
-job that reports failure, or a poll timeout all raise ``RiskProviderError`` (or
-its subclass ``RiskProviderNotConfigured``) naming the step that failed. It
-NEVER returns a fabricated or empty ``PlotEvidence`` on failure.
+RESPONSE ENVELOPE (verified against the live API, 2026-07). Every response —
+success or error — shares one shape::
 
-ASSUMED RESPONSE SHAPES (must be confirmed against the live API once a key is
-obtained; they could not be captured live because we hold no key):
+    {"code": <SystemCode>, "message": str, "cause": str | None, "data": <any>}
 
-* ``POST {api}/submit/geojson`` -> JSON carrying the job token as ``token`` at
-  the top level, or nested as ``data.token``. Both shapes are accepted.
-* ``GET {api}/status/{token}`` -> JSON carrying the job state as ``status`` at
-  the top level, or nested as ``data.status``. Terminal-success values are
-  ``completed`` / ``success`` / ``finished`` / ``done`` (case-insensitive);
-  terminal-failure values are ``failed`` / ``error``. Anything else is treated
-  as "still running" and polling continues until the attempt budget is spent.
-* ``GET {api}/generate-geojson/{token}`` -> a GeoJSON ``FeatureCollection``;
-  the FIRST feature's ``properties`` object holds the Whisp result columns
-  (e.g. ``GFC_loss_after_2020``) consumed by ``evidence_from_whisp_properties``.
+A successful analysis is HTTP 200 with ``code == "analysis_completed"`` and
+``data`` a GeoJSON ``FeatureCollection`` whose first feature's ``properties``
+holds the Whisp result columns (``EUFO_2020``, ``GFC_loss_after_2020``, ...)
+consumed by :func:`evidence_from_whisp_properties`. Errors carry a non-2xx
+status with the SAME envelope: ``401 auth_missing_api_key`` /
+``401 auth_invalid_api_key``, ``4xx validation_*``, ``5xx`` system/analysis
+codes.
 
-Parsing is defensive but never invents values: if none of the accepted shapes
-match, the client raises rather than guessing a default into existence.
+The client fails loud (house rules). A missing or invalid/expired key raises
+``RiskProviderNotConfigured`` (both are "fix your ``WHISP_API_KEY``" problems);
+any transport error, a non-2xx status, a success body whose ``code`` is not
+``analysis_completed``, a JSON decode error, or an unexpected payload shape
+raises ``RiskProviderError`` naming what failed. It NEVER returns a fabricated
+or empty ``PlotEvidence``.
+
+Areas are requested in HECTARES (``analysisOptions.unitType = "ha"``) because
+the risk engine's thresholds (``MIN_SIGNAL_HA``, ``MIN_FOREST_HA``) and every
+``DatasetSignal.value`` are in hectares; requesting any other unit would
+silently corrupt the verdict.
 """
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import httpx
@@ -49,25 +51,29 @@ from app.geo.schemas import (
 )
 from app.services.risk import evidence_from_whisp_properties
 
-# Job-status strings (lower-cased before comparison) that end the poll loop.
-_SUCCESS_STATES = frozenset({"completed", "success", "finished", "done"})
-_FAILURE_STATES = frozenset({"failed", "error"})
+# API version recorded on the evidence for reproducibility (``GET`` openapi
+# ``info.version``). Bump when the verified contract changes.
+_API_VERSION = "v2.1.0"
 
-# Defaults sized to the documented ~600s async cap: 150 polls * 2.0s ~ 300s of
-# waiting plus request time, with the total also bounded by ``max_wait``.
-_DEFAULT_POLL_INTERVAL = 2.0
-_DEFAULT_MAX_ATTEMPTS = 150
-_DEFAULT_MAX_WAIT = 600.0
-_DEFAULT_TIMEOUT = 30.0
+# The only ``code`` a synchronous analysis returns on success.
+_SUCCESS_CODE = "analysis_completed"
+
+# Auth failures are a configuration problem, not a transient provider fault, so
+# they map to ``RiskProviderNotConfigured`` (the operator must fix the key).
+_AUTH_ERROR_CODES = frozenset({"auth_missing_api_key", "auth_invalid_api_key"})
+
+# A hair above the documented 60s sync analysis budget so the SERVER times out
+# and returns ``analysis_timeout`` (which we surface) before the client aborts.
+_DEFAULT_TIMEOUT = 90.0
 
 
 class WhispClient:
-    """Synchronous client for the Whisp async-job deforestation API.
+    """Synchronous client for the Whisp deforestation API (sync submit path).
 
     The whole codebase is synchronous and the calling endpoint runs this in a
     threadpool, so a blocking ``httpx.Client`` is the right tool. All network
-    parameters (URL, key, timeout, poll cadence) are injectable for testability;
-    nothing is hardcoded.
+    parameters (URL, key, timeout) are injectable for testability; nothing is
+    hardcoded.
     """
 
     def __init__(
@@ -77,9 +83,6 @@ class WhispClient:
         api_key: str | None = None,
         client: httpx.Client | None = None,
         timeout: float = _DEFAULT_TIMEOUT,
-        poll_interval: float = _DEFAULT_POLL_INTERVAL,
-        max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
-        max_wait: float = _DEFAULT_MAX_WAIT,
         config: Settings | None = None,
     ) -> None:
         """Build a client from ``settings`` with per-argument overrides.
@@ -87,15 +90,11 @@ class WhispClient:
         ``api_url`` / ``api_key`` fall back to ``config`` (the app settings).
         A caller may inject its own ``httpx.Client`` (respx routes it in tests);
         otherwise one is created with ``timeout`` as the per-request timeout.
-        ``poll_interval`` / ``max_attempts`` / ``max_wait`` bound the poll loop.
         """
         cfg = config or default_settings
         self._api_url = (api_url if api_url is not None else cfg.whisp_api_url).rstrip("/")
         self._api_key = api_key if api_key is not None else cfg.whisp_api_key
         self._timeout = timeout
-        self._poll_interval = poll_interval
-        self._max_attempts = max_attempts
-        self._max_wait = max_wait
         self._client = client or httpx.Client(timeout=timeout)
         self._owns_client = client is None
 
@@ -105,22 +104,22 @@ class WhispClient:
     def analyze(
         self, geometry: Geometry, *, external_ref: str | None = None
     ) -> PlotEvidence:
-        """Run the full submit -> poll -> fetch handshake for one geometry.
+        """Run one synchronous analysis for a single geometry.
 
         ``geometry`` is a single GeoJSON geometry dict (Point / Polygon /
         MultiPolygon, WGS84). Returns the ``PlotEvidence`` built from the Whisp
-        result. Raises ``RiskProviderNotConfigured`` if no key is set, or
-        ``RiskProviderError`` naming the failing step on any other failure.
+        result. Raises ``RiskProviderNotConfigured`` if no key is set (or the
+        server rejects the key), or ``RiskProviderError`` naming the failure on
+        any other error.
         """
         if not self._api_key:
             raise RiskProviderNotConfigured(
                 "a Whisp API key is required; set WHISP_API_KEY to call the provider"
             )
-        token = self._submit(geometry, external_ref=external_ref)
-        self._poll_until_done(token)
-        properties = self._fetch_result_properties(token)
+        envelope = self._run_analysis(_build_payload(geometry, external_ref))
+        properties = _first_feature_properties(envelope)
         return evidence_from_whisp_properties(
-            properties, provider="whisp", dataset_versions={"whisp_api": "v2.1.0"}
+            properties, provider="whisp", dataset_versions={"whisp_api": _API_VERSION}
         )
 
     def close(self) -> None:
@@ -135,118 +134,42 @@ class WhispClient:
         self.close()
 
     # ----------------------------------------------------------------------- #
-    # Handshake steps                                                         #
-    # ----------------------------------------------------------------------- #
-    def _submit(self, geometry: Geometry, *, external_ref: str | None) -> str:
-        """POST the geometry and return the async job token."""
-        feature: dict[str, Any] = {
-            "type": "Feature",
-            "geometry": geometry,
-            "properties": {} if external_ref is None else {"external_ref": external_ref},
-        }
-        payload = {"type": "FeatureCollection", "features": [feature]}
-        data = self._request_json(
-            "POST",
-            f"{self._api_url}/submit/geojson",
-            step="submit",
-            json=payload,
-        )
-        token = _extract(data, "token")
-        if not isinstance(token, str) or not token:
-            raise RiskProviderError(
-                "Whisp submit did not return a usable job token; "
-                f"received keys {sorted(data)!r}"
-            )
-        return token
-
-    def _poll_until_done(self, token: str) -> None:
-        """Poll the job status until it succeeds, fails, or the budget runs out."""
-        started = time.monotonic()
-        for _attempt in range(self._max_attempts):
-            data = self._request_json(
-                "GET",
-                f"{self._api_url}/status/{token}",
-                step="status",
-            )
-            raw_status = _extract(data, "status")
-            if not isinstance(raw_status, str) or not raw_status:
-                raise RiskProviderError(
-                    "Whisp status did not return a status string; "
-                    f"received keys {sorted(data)!r}"
-                )
-            status = raw_status.strip().lower()
-            if status in _SUCCESS_STATES:
-                return
-            if status in _FAILURE_STATES:
-                raise RiskProviderError(
-                    f"Whisp job {token} reported failure with status {raw_status!r}"
-                )
-            if time.monotonic() - started >= self._max_wait:
-                break
-            if self._poll_interval > 0:
-                time.sleep(self._poll_interval)
-        raise RiskProviderError(
-            f"Whisp job {token} did not finish within {self._max_attempts} polls "
-            f"/ {self._max_wait:.0f}s"
-        )
-
-    def _fetch_result_properties(self, token: str) -> dict[str, Any]:
-        """Fetch the result FeatureCollection and return the first feature's props."""
-        data = self._request_json(
-            "GET",
-            f"{self._api_url}/generate-geojson/{token}",
-            step="generate-geojson",
-        )
-        features = data.get("features")
-        if not isinstance(features, list) or not features:
-            raise RiskProviderError(
-                f"Whisp generate-geojson for job {token} returned no features"
-            )
-        first = features[0]
-        properties = first.get("properties") if isinstance(first, dict) else None
-        if not isinstance(properties, dict) or not properties:
-            raise RiskProviderError(
-                f"Whisp generate-geojson for job {token} returned a feature "
-                "without a properties object"
-            )
-        return properties
-
-    # ----------------------------------------------------------------------- #
     # Transport                                                               #
     # ----------------------------------------------------------------------- #
-    def _request_json(
-        self, method: str, url: str, *, step: str, json: Any | None = None
-    ) -> dict[str, Any]:
-        """Issue one request and decode its JSON object, failing loud per step.
+    def _run_analysis(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST the geometry and return the success envelope, or fail loud.
 
-        Wraps every transport-, status-, and decode-level failure into
-        ``RiskProviderError`` tagged with the pipeline ``step`` that failed.
+        Both success and error responses are the shared ``{code, message, ...}``
+        envelope; only ``HTTP 2xx`` with ``code == analysis_completed`` is a
+        success. Every other outcome raises: auth codes become
+        ``RiskProviderNotConfigured``, everything else ``RiskProviderError``
+        carrying the server's own ``code`` / ``message`` / ``cause``.
         """
-        headers = {"X-API-KEY": self._api_key}
+        url = f"{self._api_url}/submit/geojson"
         try:
             response = self._client.request(
-                method, url, headers=headers, json=json, timeout=self._timeout
+                "POST",
+                url,
+                headers={"x-api-key": self._api_key},
+                json=payload,
+                timeout=self._timeout,
             )
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise RiskProviderError(
-                f"Whisp {step} returned HTTP {exc.response.status_code} for {url}"
-            ) from exc
         except httpx.HTTPError as exc:
-            raise RiskProviderError(
-                f"Whisp {step} request failed: {exc}"
-            ) from exc
-        try:
-            body = response.json()
-        except ValueError as exc:
-            raise RiskProviderError(
-                f"Whisp {step} returned a non-JSON body for {url}"
-            ) from exc
-        if not isinstance(body, dict):
-            raise RiskProviderError(
-                f"Whisp {step} returned a JSON {type(body).__name__}, expected an object"
-            )
-        return body
+            raise RiskProviderError(f"Whisp submit request failed: {exc}") from exc
+
+        envelope = _try_decode_envelope(response)
+        code = envelope.get("code") if envelope is not None else None
+
+        if response.is_success and code == _SUCCESS_CODE:
+            return envelope  # type: ignore[return-value]  # guarded by code check
+        if code in _AUTH_ERROR_CODES:
+            raise RiskProviderNotConfigured(_envelope_message(envelope))
+        if envelope is not None and code is not None:
+            raise RiskProviderError(_envelope_message(envelope))
+        raise RiskProviderError(
+            f"Whisp submit returned HTTP {response.status_code} with an "
+            f"unrecognized body for {url}"
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -267,15 +190,76 @@ def analyze_geometry(
 # --------------------------------------------------------------------------- #
 # Internal helpers                                                              #
 # --------------------------------------------------------------------------- #
-def _extract(data: dict[str, Any], key: str) -> Any:
-    """Return ``data[key]`` if present, else ``data['data'][key]``, else None.
+def _build_payload(geometry: Geometry, external_ref: str | None) -> dict[str, Any]:
+    """Wrap one geometry as the sync submit body Whisp expects.
 
-    Accepts both the flat and the ``data``-wrapped response shapes documented in
-    the module docstring without inventing a value when neither is present.
+    A single-feature ``FeatureCollection`` plus ``analysisOptions`` pinning the
+    synchronous path and hectare units. When ``external_ref`` is given it rides
+    along in the feature's ``properties`` and ``externalIdColumn`` names that
+    property so Whisp echoes it back on the result row.
     """
-    if key in data:
-        return data[key]
-    nested = data.get("data")
-    if isinstance(nested, dict) and key in nested:
-        return nested[key]
-    return None
+    feature: dict[str, Any] = {
+        "type": "Feature",
+        "geometry": geometry,
+        "properties": {} if external_ref is None else {"external_ref": external_ref},
+    }
+    options: dict[str, Any] = {"async": False, "unitType": "ha"}
+    if external_ref is not None:
+        options["externalIdColumn"] = "external_ref"
+    return {
+        "type": "FeatureCollection",
+        "features": [feature],
+        "analysisOptions": options,
+    }
+
+
+def _try_decode_envelope(response: httpx.Response) -> dict[str, Any] | None:
+    """Return the response JSON if it is an object, else ``None``.
+
+    Used for both success and error responses (they share the envelope). A
+    non-JSON or non-object body (a proxy's HTML 502, say) yields ``None`` so the
+    caller can fall back to a status-code-only error.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def _envelope_message(envelope: dict[str, Any] | None) -> str:
+    """Render the server envelope as a single fail-loud message string."""
+    if not envelope:
+        return "Whisp returned an empty response"
+    detail = f"Whisp: {envelope.get('code', 'unknown')}"
+    message = envelope.get("message")
+    if message:
+        detail += f" - {message}"
+    cause = envelope.get("cause")
+    if cause:
+        detail += f" (cause: {cause})"
+    return detail
+
+
+def _first_feature_properties(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Pull the first result feature's ``properties`` out of a success envelope.
+
+    Raises ``RiskProviderError`` if ``data`` is not a FeatureCollection, holds
+    no features, or the first feature has no ``properties`` object — the
+    contract changed and we must not guess a value into existence.
+    """
+    data = envelope.get("data")
+    if not isinstance(data, dict):
+        raise RiskProviderError(
+            "Whisp analysis completed but carried no result data object"
+        )
+    features = data.get("features")
+    if not isinstance(features, list) or not features:
+        raise RiskProviderError("Whisp analysis result contained no features")
+    first = features[0]
+    properties = first.get("properties") if isinstance(first, dict) else None
+    if not isinstance(properties, dict) or not properties:
+        raise RiskProviderError(
+            "Whisp analysis result feature had no properties object"
+        )
+    return properties

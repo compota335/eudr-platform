@@ -119,9 +119,9 @@ async def check_plot(
             commodity=commodity_enum,
             declared_volume_t=declared_volume_t,
         )
-        # The provider is a SYNC blocking call (Whisp submit -> poll -> fetch can
-        # take minutes). This endpoint is ``async def`` (it awaits the upload),
-        # so the call must move off the event loop or it stalls every request.
+        # The provider is a SYNC blocking call (one Whisp request, up to ~60s).
+        # This endpoint is ``async def`` (it awaits the upload), so the call must
+        # move off the event loop or it stalls every request.
         evidence = await run_in_threadpool(
             provider, validated.geometry, external_ref=validated.external_ref
         )
