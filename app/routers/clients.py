@@ -13,9 +13,6 @@ unparseable ``quantity_kg`` is a 400. Empty optional fields are stored as NULL
 
 from __future__ import annotations
 
-from enum import StrEnum
-from typing import TypeVar
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -26,12 +23,16 @@ from app.models.client import Client
 from app.models.enums import ClientSide, Commodity
 from app.models.shipment import Shipment
 from app.models.supplier import Supplier
+from app.routers._forms import (
+    clean_optional,
+    parse_enum,
+    parse_optional_enum,
+    parse_optional_float,
+    require,
+)
 from app.templating import templates
 
 router = APIRouter()
-
-# Any of the string enums exposed through the onboarding forms.
-E = TypeVar("E", bound=StrEnum)
 
 
 # --------------------------------------------------------------------------- #
@@ -67,12 +68,12 @@ def create_client(
 ) -> RedirectResponse:
     """Create a client and redirect to its detail page (303)."""
     client = Client(
-        name=_require(name, "name"),
-        side=_parse_enum(ClientSide, side, "side"),
-        country=_clean(country),
-        contact_email=_clean(contact_email),
-        eori=_clean(eori),
-        notes=_clean(notes),
+        name=require(name, "name"),
+        side=parse_enum(ClientSide, side, "side"),
+        country=clean_optional(country),
+        contact_email=clean_optional(contact_email),
+        eori=clean_optional(eori),
+        notes=clean_optional(notes),
     )
     session.add(client)
     session.commit()
@@ -121,13 +122,13 @@ def create_supplier(
     client = _get_client(session, client_id)
     supplier = Supplier(
         client_id=client.id,
-        name=_require(name, "name"),
-        country=_clean(country),
-        commodity=_parse_optional_enum(Commodity, commodity, "commodity"),
-        contact_email=_clean(contact_email),
-        contact_phone=_clean(contact_phone),
-        language=_clean(language),
-        approx_volume_t=_parse_optional_float(approx_volume_t, "approx_volume_t"),
+        name=require(name, "name"),
+        country=clean_optional(country),
+        commodity=parse_optional_enum(Commodity, commodity, "commodity"),
+        contact_email=clean_optional(contact_email),
+        contact_phone=clean_optional(contact_phone),
+        language=clean_optional(language),
+        approx_volume_t=parse_optional_float(approx_volume_t, "approx_volume_t"),
     )
     session.add(supplier)
     session.commit()
@@ -148,11 +149,11 @@ def create_shipment(
     client = _get_client(session, client_id)
     shipment = Shipment(
         client_id=client.id,
-        reference=_clean(reference),
-        commodity=_parse_optional_enum(Commodity, commodity, "commodity"),
-        cn_code=_clean(cn_code),
-        quantity_kg=_parse_optional_float(quantity_kg, "quantity_kg"),
-        country_of_production=_clean(country_of_production),
+        reference=clean_optional(reference),
+        commodity=parse_optional_enum(Commodity, commodity, "commodity"),
+        cn_code=clean_optional(cn_code),
+        quantity_kg=parse_optional_float(quantity_kg, "quantity_kg"),
+        country_of_production=clean_optional(country_of_production),
     )
     session.add(shipment)
     session.commit()
@@ -168,52 +169,3 @@ def _get_client(session: Session, client_id: int) -> Client:
     if client is None:
         raise HTTPException(status_code=404, detail=f"Client {client_id} not found.")
     return client
-
-
-def _clean(value: str | None) -> str | None:
-    """Normalize an optional field: strip, and treat blank as NULL."""
-    if value is None:
-        return None
-    stripped = value.strip()
-    return stripped or None
-
-
-def _require(value: str, field: str) -> str:
-    """Return a stripped required field, or raise a 400 if it is blank."""
-    stripped = value.strip()
-    if not stripped:
-        raise HTTPException(status_code=400, detail=f"{field} is required.")
-    return stripped
-
-
-def _parse_enum(enum_cls: type[E], value: str, field: str) -> E:
-    """Map a required form value to an enum, raising a 400 on an unknown value."""
-    try:
-        return enum_cls(value.strip())
-    except ValueError as exc:
-        allowed = ", ".join(member.value for member in enum_cls)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid {field} {value!r}; expected one of {allowed}.",
-        ) from exc
-
-
-def _parse_optional_enum(
-    enum_cls: type[E], value: str | None, field: str
-) -> E | None:
-    """Like :func:`_parse_enum`, but an empty value maps to ``None``."""
-    if value is None or not value.strip():
-        return None
-    return _parse_enum(enum_cls, value, field)
-
-
-def _parse_optional_float(value: str | None, field: str) -> float | None:
-    """Parse an optional numeric field, raising a 400 if it is not a number."""
-    if value is None or not value.strip():
-        return None
-    try:
-        return float(value.strip())
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid {field} {value!r}; expected a number."
-        ) from exc
